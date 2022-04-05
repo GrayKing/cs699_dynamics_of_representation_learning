@@ -5,7 +5,8 @@ import numpy
 
 from jax import jit, grad
 
-def gaussian_mixture_energy(coord, means, sigmas, weights):
+@jit 
+def gaussian_mixture_energy(coord, means, sigmas, weights, eps=0):
     """
         Implements an isotropic gaussian mixture energy function.
         This is a good distribution for debugging sampler implementation
@@ -18,14 +19,25 @@ def gaussian_mixture_energy(coord, means, sigmas, weights):
         :param weights: array of scalers (shape=(K,)) describing weights of each gaussian dist in mixture
         :return energy value (or -log of unnormalized density)
     """
+    K = means.shape[0]
+    means = means.reshape(1,means.shape[0],means.shape[1])
+    sigmas = sigmas.reshape(1,sigmas.shape[0])
+
+    weights = weights.reshape(1,K)
+
+    coord = coord.reshape(coord.shape[0],1,coord.shape[1])
+    coord = jax.numpy.tile(coord,(1,K,1))
 
     diff = coord - means
-    numerator = jax.numpy.sum(diff ** 2, axis=1)
+
+    numerator = jax.numpy.sum(diff ** 2, axis=2)
 
     mode_densities = jax.numpy.exp(- numerator / (2 * sigmas ** 2)) / sigmas
-    density = jax.numpy.sum(weights * mode_densities)
-    return -jax.numpy.log(density)
+    
+    density = jax.numpy.sum(weights * mode_densities,axis=1)
+    density = density + eps
 
+    return -jax.numpy.log(density)
 
 def gaussian_mixture_sampler(N, means, sigmas, weights, key):
     """
@@ -53,7 +65,7 @@ def gaussian_mixture_sampler(N, means, sigmas, weights, key):
 
 def sample_from_normal(N, key):
     subkey, key = jax.random.split(key)
-    samples = jax.random.normal(subkey, shape=(N,2)) * 100.0 + 350.0 
+    samples = jax.random.normal(subkey, shape=(N,2)) 
     return samples
 
 def sample_from_uniform(N, key):
@@ -162,9 +174,9 @@ def interp2d(
         oob = jax.numpy.logical_or(
             x < xp[0], jax.numpy.logical_or(x > xp[-1], jax.numpy.logical_or(y < yp[0], y > yp[-1]))
         )
-        z = jax.numpy.where(oob, fill_value, z)
+        z = jax.numpy.where(oob, (1e-5)*jax.numpy.exp(-((x-350)/100)**2 - ((y-350)/100)**2)/100 , z)
 
-    return z
+    return z 
 
 
 def prepare_image(rgb, crop=None, embed=None, white_cutoff=225, gauss_sigma=3, background=0.01):

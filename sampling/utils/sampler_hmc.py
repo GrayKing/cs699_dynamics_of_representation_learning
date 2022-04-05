@@ -56,8 +56,6 @@ def sample_hmc(x, key, energy_fn = None, energy_fn_grad = None, nsteps = 50, ste
     v = numpy.multiply(1.0-acc, v) + numpy.multiply(acc, vv)
     E = numpy.multiply(1.0-acc, E0) + numpy.multiply(acc, Eprop)
 
-    print(numpy.mean(acc))
-
     dW = E - E0
     return x, dW 
 
